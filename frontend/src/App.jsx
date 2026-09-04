@@ -1,122 +1,132 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import {
+  getQuotes,
+  getWatchlists,
+  loginUser,
+} from "./api/api";
+
+import WatchlistTable from "./components/WatchlistTable";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [token, setToken] = useState(
+    localStorage.getItem("token")
+  );
+
+  const [watchlist, setWatchlist] = useState(null);
+  const [quotes, setQuotes] = useState([]);
+  const [message, setMessage] = useState("");
+
+  const loadWatchlistData = async (authToken) => {
+    try {
+      setMessage("Loading your watchlist...");
+
+      const watchlistData = await getWatchlists(authToken);
+
+      if (!watchlistData.watchlists.length) {
+        setMessage("You don't have any watchlists yet.");
+        return;
+      }
+
+      const firstWatchlist = watchlistData.watchlists[0];
+
+      setWatchlist(firstWatchlist);
+
+      if (!firstWatchlist.symbols.length) {
+        setMessage("Your watchlist is empty.");
+        return;
+      }
+
+      const quoteData = await getQuotes(firstWatchlist.symbols);
+
+      setQuotes(quoteData.quotes);
+      setMessage("");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      loadWatchlistData(token);
+    }
+  }, [token]);
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+
+    try {
+      setMessage("Logging in...");
+
+      const data = await loginUser(username, password);
+
+      localStorage.setItem("token", data.token);
+      setToken(data.token);
+
+      setMessage("");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+    setWatchlist(null);
+    setQuotes([]);
+  };
+
+  if (!token) {
+    return (
+      <div>
+        <h1>Smart Market Watchlist</h1>
+
+        <form onSubmit={handleLogin}>
+          <div>
+            <label>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(event) =>
+                setUsername(event.target.value)
+              }
+            />
+          </div>
+
+          <div>
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
+            />
+          </div>
+
+          <button type="submit">Login</button>
+        </form>
+
+        {message && <p>{message}</p>}
+      </div>
+    );
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div>
+      <h1>Smart Market Watchlist</h1>
 
-      <div className="ticks"></div>
+      <button onClick={handleLogout}>Logout</button>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {message && <p>{message}</p>}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {watchlist && (
+        <WatchlistTable quotes={quotes} />
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
