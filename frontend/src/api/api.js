@@ -36,6 +36,14 @@ export const getWatchlists = async (token) => {
   });
 };
 
+export const getWatchlistChanges = async (token, watchlistId) => {
+  return request(`/watchlists/${watchlistId}/changes`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
 export const getQuotes = async (symbols) => {
   const query = symbols.join(",");
 

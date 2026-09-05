@@ -4,6 +4,7 @@ const { calculateAttentionScore } = require("../services/scoring");
 const Watchlist = require("../models/Watchlist");
 const authMiddleware = require("../middleware/auth");
 const { getSinceSeenData } = require("../services/lastSeenService");
+const { generateBrief } = require("../services/briefGenerator");
 
 const router = express.Router();
 // Get all watchlists for the logged-in user
@@ -143,7 +144,6 @@ router.delete("/:id/symbols/:symbol", authMiddleware, async (req, res) => {
 
 
 
-// Get watchlist quotes with since-last-checked data and attention scores
 router.get("/:id/changes", authMiddleware, async (req, res) => {
   try {
     const watchlist = await Watchlist.findOne({
@@ -165,6 +165,7 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
         sinceSeen: {},
         lastOpenedAt: null,
         isFirstVisit: true,
+        brief: "Nothing unusual needs your attention right now.",
       });
     }
 
@@ -209,8 +210,7 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
         sinceSeenData.sinceSeen[quote.symbol]?.sinceSeenPct || 0;
 
       const crossed52 =
-        quote.price >= stat.week52High ||
-        quote.price <= stat.week52Low
+        quote.price >= stat.week52High || quote.price <= stat.week52Low
           ? 1
           : 0;
 
@@ -232,6 +232,25 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
 
     scoredQuotes.sort((a, b) => b.score - a.score);
 
+    // Only unusual stocks are sent to the LLM.
+    // The scoring system decides what deserves attention.
+    const flaggedSignals = scoredQuotes
+      .filter((quote) => quote.unusual)
+      .slice(0, 3)
+      .map((quote) => ({
+        symbol: quote.symbol,
+        dayChangePct: quote.dayChangePct,
+        moveZ: quote.moveZ,
+        volRatio: quote.volRatio,
+        crossed52: quote.crossed52,
+        sinceSeenPct:
+          sinceSeenData.sinceSeen[quote.symbol]?.sinceSeenPct || 0,
+        score: quote.score,
+        direction: quote.direction,
+      }));
+
+    const brief = await generateBrief(flaggedSignals);
+
     res.json({
       success: true,
       quotes: scoredQuotes,
@@ -239,9 +258,13 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
       lastOpenedAt: sinceSeenData.lastOpenedAt,
       isFirstVisit: sinceSeenData.isFirstVisit,
       debounced: sinceSeenData.debounced || false,
+      brief,
     });
   } catch (error) {
-    console.error("Get watchlist changes failed:", error.message);
+    console.error(
+      "Get watchlist changes failed:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,

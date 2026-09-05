@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  getQuotes,
+  getWatchlistChanges,
   getWatchlists,
   loginUser,
 } from "./api/api";
@@ -17,6 +17,7 @@ function App() {
 
   const [watchlist, setWatchlist] = useState(null);
   const [quotes, setQuotes] = useState([]);
+  const [brief, setBrief] = useState("");
   const [message, setMessage] = useState("");
 
   const loadWatchlistData = async (authToken) => {
@@ -36,12 +37,18 @@ function App() {
 
       if (!firstWatchlist.symbols.length) {
         setMessage("Your watchlist is empty.");
+        setBrief("Nothing unusual needs your attention right now.");
+        setQuotes([]);
         return;
       }
 
-      const quoteData = await getQuotes(firstWatchlist.symbols);
+      const changeData = await getWatchlistChanges(
+        authToken,
+        firstWatchlist._id
+      );
 
-      setQuotes(quoteData.quotes);
+      setQuotes(changeData.quotes);
+      setBrief(changeData.brief || "");
       setMessage("");
     } catch (error) {
       setMessage(error.message);
@@ -76,6 +83,7 @@ function App() {
     setToken(null);
     setWatchlist(null);
     setQuotes([]);
+    setBrief("");
   };
 
   if (!token) {
@@ -123,7 +131,16 @@ function App() {
       {message && <p>{message}</p>}
 
       {watchlist && (
-        <WatchlistTable quotes={quotes} />
+        <>
+          <h2>{watchlist.name}</h2>
+
+          <section>
+            <h3>Welcome back</h3>
+            <p>{brief}</p>
+          </section>
+
+          <WatchlistTable quotes={quotes} />
+        </>
       )}
     </div>
   );
