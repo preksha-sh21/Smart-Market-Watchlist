@@ -1,5 +1,6 @@
 const express = require("express");
-
+const Stats = require("../models/Stats");
+const { calculateAttentionScore } = require("../services/scoring");
 const Watchlist = require("../models/Watchlist");
 const authMiddleware = require("../middleware/auth");
 const { getSinceSeenData } = require("../services/lastSeenService");
@@ -140,7 +141,9 @@ router.delete("/:id/symbols/:symbol", authMiddleware, async (req, res) => {
   }
 });
 
-// Get watchlist quotes with since-last-checked data
+
+
+// Get watchlist quotes with since-last-checked data and attention scores
 router.get("/:id/changes", authMiddleware, async (req, res) => {
   try {
     const watchlist = await Watchlist.findOne({
@@ -177,10 +180,65 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
       quotes,
     });
 
+    const stats = await Stats.find({
+      symbol: { $in: watchlist.symbols },
+    }).lean();
+
+    const statsBySymbol = {};
+
+    for (const stat of stats) {
+      statsBySymbol[stat.symbol] = stat;
+    }
+
+    const scoredQuotes = quotes.map((quote) => {
+      const stat = statsBySymbol[quote.symbol];
+
+      if (!stat) {
+        return {
+          ...quote,
+          score: 0,
+          moveZ: 0,
+          volRatio: 0,
+          crossed52: 0,
+          unusual: false,
+          direction: "flat",
+        };
+      }
+
+      const sinceSeenPct =
+        sinceSeenData.sinceSeen[quote.symbol]?.sinceSeenPct || 0;
+
+      const crossed52 =
+        quote.price >= stat.week52High ||
+        quote.price <= stat.week52Low
+          ? 1
+          : 0;
+
+      const scoringResult = calculateAttentionScore({
+        todayPct: quote.dayChangePct,
+        meanDailyPct: stat.meanDailyPct,
+        stdDailyPct: stat.stdDailyPct,
+        todayVolume: quote.volume,
+        avgVolume: stat.avgVolume,
+        crossed52,
+        sinceSeenPct,
+      });
+
+      return {
+        ...quote,
+        ...scoringResult,
+      };
+    });
+
+    scoredQuotes.sort((a, b) => b.score - a.score);
+
     res.json({
       success: true,
-      quotes,
-      ...sinceSeenData,
+      quotes: scoredQuotes,
+      sinceSeen: sinceSeenData.sinceSeen,
+      lastOpenedAt: sinceSeenData.lastOpenedAt,
+      isFirstVisit: sinceSeenData.isFirstVisit,
+      debounced: sinceSeenData.debounced || false,
     });
   } catch (error) {
     console.error("Get watchlist changes failed:", error.message);
@@ -191,5 +249,4 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
     });
   }
 });
-
 module.exports = router;
