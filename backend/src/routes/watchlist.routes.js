@@ -2,9 +2,9 @@ const express = require("express");
 
 const Watchlist = require("../models/Watchlist");
 const authMiddleware = require("../middleware/auth");
+const { getSinceSeenData } = require("../services/lastSeenService");
 
 const router = express.Router();
-
 // Get all watchlists for the logged-in user
 router.get("/", authMiddleware, async (req, res) => {
   try {
@@ -136,6 +136,58 @@ router.delete("/:id/symbols/:symbol", authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to remove symbol",
+    });
+  }
+});
+
+// Get watchlist quotes with since-last-checked data
+router.get("/:id/changes", authMiddleware, async (req, res) => {
+  try {
+    const watchlist = await Watchlist.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
+
+    if (!watchlist) {
+      return res.status(404).json({
+        success: false,
+        message: "Watchlist not found",
+      });
+    }
+
+    if (!watchlist.symbols.length) {
+      return res.json({
+        success: true,
+        quotes: [],
+        sinceSeen: {},
+        lastOpenedAt: null,
+        isFirstVisit: true,
+      });
+    }
+
+    const Quote = require("../models/Quote");
+
+    const quotes = await Quote.find({
+      symbol: { $in: watchlist.symbols },
+    }).lean();
+
+    const sinceSeenData = await getSinceSeenData({
+      userId: req.user.userId,
+      watchlistId: watchlist._id,
+      quotes,
+    });
+
+    res.json({
+      success: true,
+      quotes,
+      ...sinceSeenData,
+    });
+  } catch (error) {
+    console.error("Get watchlist changes failed:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to calculate watchlist changes",
     });
   }
 });
