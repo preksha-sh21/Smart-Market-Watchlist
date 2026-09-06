@@ -25,7 +25,6 @@ function formatSinceSeen(quote) {
 
   return (
     <div className="since-seen">
-
       <div
         className={
           priceDelta >= 0
@@ -47,7 +46,6 @@ function formatSinceSeen(quote) {
         {pct >= 0 ? "+" : ""}
         {pct.toFixed(2)}%
       </div>
-
     </div>
   );
 }
@@ -106,6 +104,60 @@ function formatSymbol(symbol) {
     .replace(".BO", "");
 }
 
+/*
+  Explain why the stock received attention.
+
+  These reasons come directly from the deterministic
+  attention-scoring signals.
+*/
+function getWhyReasons(quote) {
+  const reasons = [];
+
+  if (Math.abs(Number(quote.moveZ)) >= 2) {
+    reasons.push("unusual move");
+  }
+
+  if (Number(quote.volRatio) >= 2) {
+    reasons.push(
+      `${Number(quote.volRatio).toFixed(2)}× avg volume`
+    );
+  }
+
+  if (Number(quote.crossed52) === 1) {
+    reasons.push("52-week level");
+  }
+
+  if (
+    quote.sinceSeenPct !== undefined &&
+    quote.sinceSeenPct !== null &&
+    Math.abs(Number(quote.sinceSeenPct)) >= 2
+  ) {
+    reasons.push("since-last-check move");
+  }
+
+  return reasons;
+}
+
+/*
+  Format the quote timestamp for the user.
+*/
+function formatQuoteTime(timestamp) {
+  if (!timestamp) {
+    return "Time unavailable";
+  }
+
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Time unavailable";
+  }
+
+  return date.toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function WatchlistTable({ quotes }) {
   if (!quotes.length) {
     return (
@@ -152,6 +204,9 @@ function WatchlistTable({ quotes }) {
             const trendClass =
               getTrendClass(quote);
 
+            const whyReasons =
+              getWhyReasons(quote);
+
             return (
               <tr
                 key={quote.symbol}
@@ -181,10 +236,23 @@ function WatchlistTable({ quotes }) {
                         )}
                       </div>
 
-                      <div className="company-exchange">
+                      <div
+                        className={
+                          quote.stale
+                            ? "company-exchange stale-status"
+                            : "company-exchange"
+                        }
+                      >
                         {quote.stale
-                          ? "Stale data"
+                          ? "STALE"
                           : quote.source}
+                      </div>
+
+                      <div className="quote-time">
+                        As of{" "}
+                        {formatQuoteTime(
+                          quote.ts
+                        )}
                       </div>
 
                     </div>
@@ -216,6 +284,7 @@ function WatchlistTable({ quotes }) {
                 {/* 1D change */}
 
                 <td>
+
                   <span
                     className={
                       quote.dayChangePct >= 0
@@ -231,6 +300,7 @@ function WatchlistTable({ quotes }) {
                     ).toFixed(2)}
                     %
                   </span>
+
                 </td>
 
                 {/* Since last checked */}
@@ -242,6 +312,7 @@ function WatchlistTable({ quotes }) {
                 {/* Volume */}
 
                 <td>
+
                   <div className="volume-cell">
 
                     <strong>
@@ -256,11 +327,13 @@ function WatchlistTable({ quotes }) {
                     </span>
 
                   </div>
+
                 </td>
 
                 {/* Attention */}
 
                 <td>
+
                   <div
                     className={`attention-cell ${attentionClass}`}
                   >
@@ -280,9 +353,29 @@ function WatchlistTable({ quotes }) {
                         ).toFixed(2)}
                       </span>
 
+                      {/* Why chip */}
+
+                      {whyReasons.length > 0 && (
+                        <div className="why-chip">
+
+                          <span className="why-icon">
+                            ?
+                          </span>
+
+                          <span>
+                            Why?{" "}
+                            {whyReasons.join(
+                              " · "
+                            )}
+                          </span>
+
+                        </div>
+                      )}
+
                     </div>
 
                   </div>
+
                 </td>
 
               </tr>

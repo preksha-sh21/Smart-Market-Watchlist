@@ -636,6 +636,20 @@ button {
   font-size: 9px;
 }
 
+.quote-time {
+  margin-top: 2px;
+
+  color: #a0a6ae;
+
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.stale-status {
+  color: #b7791f !important;
+  font-weight: 600;
+}
+
 /* =========================================
    TREND
 ========================================= */
@@ -750,6 +764,56 @@ button {
   color: #9aa1ab;
 
   font-size: 9px;
+}
+
+
+/* =========================================
+   WHY CHIP
+========================================= */
+
+.why-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  width: fit-content;
+
+  margin-top: 6px;
+  padding: 3px 7px;
+
+  border: 1px solid #eadfbd;
+  border-radius: 5px;
+
+  background: #fffaf0;
+
+  color: #8a691e;
+
+  font-size: 8px;
+  font-weight: 500;
+
+  line-height: 1.3;
+
+  white-space: normal;
+}
+
+.why-icon {
+  width: 12px;
+  height: 12px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #f3d98d;
+
+  color: #765617;
+
+  font-size: 8px;
+  font-weight: 700;
 }
 
 .attention-cell.attention {

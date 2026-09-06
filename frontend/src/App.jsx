@@ -174,6 +174,7 @@ function App() {
             <button
               className="logout-button"
               onClick={handleLogout}
+              title="Log out of SmartMarket"
             >
               Logout
             </button>
@@ -276,11 +277,17 @@ function App() {
                   <span>Search your watchlist</span>
                 </div>
 
-                <button className="toolbar-button">
+                <button
+                  className="toolbar-button"
+                  title="Add stocks to this watchlist"
+                >
                   + Add stocks
                 </button>
 
-                <button className="toolbar-button">
+                <button
+                  className="toolbar-button"
+                  title="Manage stocks in this watchlist"
+                >
                   Edit
                 </button>
 

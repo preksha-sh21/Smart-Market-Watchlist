@@ -5,7 +5,7 @@ const Watchlist = require("../models/Watchlist");
 const authMiddleware = require("../middleware/auth");
 const { getSinceSeenData } = require("../services/lastSeenService");
 const { generateBrief } = require("../services/briefGenerator");
-
+const { getQuotes } = require("../services/marketDataService");
 const router = express.Router();
 
 // Get all watchlists for the logged-in user
@@ -170,12 +170,8 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
       });
     }
 
-    const Quote = require("../models/Quote");
-
-    // Get latest quotes
-    const quotes = await Quote.find({
-      symbol: { $in: watchlist.symbols },
-    }).lean();
+    
+    const quotes = await getQuotes(watchlist.symbols);
 
     // Calculate changes since the user last opened the watchlist
     const sinceSeenData = await getSinceSeenData({
