@@ -7,6 +7,7 @@ const { getSinceSeenData } = require("../services/lastSeenService");
 const { generateBrief } = require("../services/briefGenerator");
 
 const router = express.Router();
+
 // Get all watchlists for the logged-in user
 router.get("/", authMiddleware, async (req, res) => {
   try {
@@ -142,8 +143,7 @@ router.delete("/:id/symbols/:symbol", authMiddleware, async (req, res) => {
   }
 });
 
-
-
+// Get ranked watchlist changes
 router.get("/:id/changes", authMiddleware, async (req, res) => {
   try {
     const watchlist = await Watchlist.findOne({
@@ -158,6 +158,7 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
       });
     }
 
+    // Empty watchlist
     if (!watchlist.symbols.length) {
       return res.json({
         success: true,
@@ -171,16 +172,19 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
 
     const Quote = require("../models/Quote");
 
+    // Get latest quotes
     const quotes = await Quote.find({
       symbol: { $in: watchlist.symbols },
     }).lean();
 
+    // Calculate changes since the user last opened the watchlist
     const sinceSeenData = await getSinceSeenData({
       userId: req.user.userId,
       watchlistId: watchlist._id,
       quotes,
     });
 
+    // Get historical statistics
     const stats = await Stats.find({
       symbol: { $in: watchlist.symbols },
     }).lean();
@@ -191,12 +195,23 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
       statsBySymbol[stat.symbol] = stat;
     }
 
+    // Score every stock
     const scoredQuotes = quotes.map((quote) => {
       const stat = statsBySymbol[quote.symbol];
 
+      const sinceSeen = sinceSeenData.sinceSeen[quote.symbol];
+
+      const sinceSeenPriceDelta = sinceSeen?.priceDelta ?? null;
+      const sinceSeenPct = sinceSeen?.sinceSeenPct ?? null;
+
+      // If no historical stats exist, keep the quote visible
+      // but give it a neutral attention score.
       if (!stat) {
         return {
           ...quote,
+          avgVolume: null,
+          sinceSeenPriceDelta,
+          sinceSeenPct,
           score: 0,
           moveZ: 0,
           volRatio: 0,
@@ -206,11 +221,11 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
         };
       }
 
-      const sinceSeenPct =
-        sinceSeenData.sinceSeen[quote.symbol]?.sinceSeenPct || 0;
+      const scoringSinceSeenPct = sinceSeenPct ?? 0;
 
       const crossed52 =
-        quote.price >= stat.week52High || quote.price <= stat.week52Low
+        quote.price >= stat.week52High ||
+        quote.price <= stat.week52Low
           ? 1
           : 0;
 
@@ -221,34 +236,45 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
         todayVolume: quote.volume,
         avgVolume: stat.avgVolume,
         crossed52,
-        sinceSeenPct,
+        sinceSeenPct: scoringSinceSeenPct,
       });
 
       return {
         ...quote,
+
+        // Used by the frontend for "Vol vs Avg"
+        avgVolume: stat.avgVolume,
+
+        // Used by the frontend for "Since Last Checked"
+        sinceSeenPriceDelta,
+        sinceSeenPct,
+
+        // Attention scoring information
         ...scoringResult,
       };
     });
 
+    // Highest attention score first
     scoredQuotes.sort((a, b) => b.score - a.score);
 
     // Only unusual stocks are sent to the LLM.
     // The scoring system decides what deserves attention.
     const flaggedSignals = scoredQuotes
-      .filter((quote) => quote.unusual)
-      .slice(0, 3)
-      .map((quote) => ({
-        symbol: quote.symbol,
+     .filter((quote) => quote.unusual)
+     .slice(0, 3)
+     .map((quote) => ({
+        symbol: quote.symbol.replace(/\.(NS|BO)$/, ""),
         dayChangePct: quote.dayChangePct,
         moveZ: quote.moveZ,
         volRatio: quote.volRatio,
         crossed52: quote.crossed52,
-        sinceSeenPct:
-          sinceSeenData.sinceSeen[quote.symbol]?.sinceSeenPct || 0,
+        sinceSeenPct: quote.sinceSeenPct ?? 0,
         score: quote.score,
         direction: quote.direction,
       }));
 
+    // Generate a short explanation.
+    // If Groq fails, generateBrief() automatically uses the fallback.
     const brief = await generateBrief(flaggedSignals);
 
     res.json({
@@ -272,4 +298,5 @@ router.get("/:id/changes", authMiddleware, async (req, res) => {
     });
   }
 });
+
 module.exports = router;

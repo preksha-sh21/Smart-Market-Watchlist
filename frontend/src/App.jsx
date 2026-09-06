@@ -18,6 +18,7 @@ function App() {
   const [watchlist, setWatchlist] = useState(null);
   const [quotes, setQuotes] = useState([]);
   const [brief, setBrief] = useState("");
+  const [lastOpenedAt, setLastOpenedAt] = useState(null);
   const [message, setMessage] = useState("");
 
   const loadWatchlistData = async (authToken) => {
@@ -37,7 +38,9 @@ function App() {
 
       if (!firstWatchlist.symbols.length) {
         setMessage("Your watchlist is empty.");
-        setBrief("Nothing unusual needs your attention right now.");
+        setBrief(
+          "Nothing unusual needs your attention right now."
+        );
         setQuotes([]);
         return;
       }
@@ -49,6 +52,7 @@ function App() {
 
       setQuotes(changeData.quotes);
       setBrief(changeData.brief || "");
+      setLastOpenedAt(changeData.lastOpenedAt || null);
       setMessage("");
     } catch (error) {
       setMessage(error.message);
@@ -84,64 +88,266 @@ function App() {
     setWatchlist(null);
     setQuotes([]);
     setBrief("");
+    setLastOpenedAt(null);
   };
 
   if (!token) {
     return (
-      <div>
-        <h1>Smart Market Watchlist</h1>
+      <div className="login-page">
+        <div className="login-card">
+          <div className="brand-mark">S</div>
 
-        <form onSubmit={handleLogin}>
-          <div>
-            <label>Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(event) =>
-                setUsername(event.target.value)
-              }
-            />
-          </div>
+          <h1>Smart Market Watchlist</h1>
 
-          <div>
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(event.target.value)
-              }
-            />
-          </div>
+          <p className="login-subtitle">
+            See what meaningfully changed since you last checked.
+          </p>
 
-          <button type="submit">Login</button>
-        </form>
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>Username</label>
 
-        {message && <p>{message}</p>}
+              <input
+                type="text"
+                value={username}
+                onChange={(event) =>
+                  setUsername(event.target.value)
+                }
+                placeholder="Enter username"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Password</label>
+
+              <input
+                type="password"
+                value={password}
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
+                placeholder="Enter password"
+              />
+            </div>
+
+            <button type="submit" className="primary-button">
+              Login
+            </button>
+          </form>
+
+          {message && (
+            <p className="login-message">{message}</p>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <h1>Smart Market Watchlist</h1>
+    <div className="app-shell">
 
-      <button onClick={handleLogout}>Logout</button>
+      {/* ---------------- Header ---------------- */}
 
-      {message && <p>{message}</p>}
+      <header className="top-header">
+        <div className="header-inner">
 
-      {watchlist && (
-        <>
-          <h2>{watchlist.name}</h2>
+          <div className="brand">
+            <div className="brand-logo">S</div>
 
-          <section>
-            <h3>Welcome back</h3>
-            <p>{brief}</p>
-          </section>
+            <span className="brand-name">
+              SmartMarket
+            </span>
+          </div>
 
-          <WatchlistTable quotes={quotes} />
-        </>
-      )}
+          <nav className="main-nav">
+            <span>Stocks</span>
+            <span>F&amp;O</span>
+            <span>Mutual Funds</span>
+          </nav>
+
+          <div className="header-actions">
+            <div className="search-box">
+              <span>⌕</span>
+              <span>Search...</span>
+            </div>
+
+            <button
+              className="logout-button"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </div>
+
+        </div>
+      </header>
+
+      {/* ---------------- Secondary navigation ---------------- */}
+
+      <div className="secondary-nav">
+        <div className="content-width secondary-inner">
+          <span>Explore</span>
+          <span>Holdings</span>
+          <span>Positions</span>
+          <span>Orders</span>
+          <span className="active">Watchlist</span>
+        </div>
+      </div>
+
+      {/* ---------------- Market strip ---------------- */}
+
+      <div className="market-strip">
+        <div className="content-width market-strip-inner">
+
+          <div className="market-item">
+            <strong>NIFTY</strong>
+            <span>23,897.70</span>
+            <span className="positive">
+              +24.25 (0.10%)
+            </span>
+          </div>
+
+          <div className="market-item">
+            <strong>SENSEX</strong>
+            <span>76,515.43</span>
+            <span className="positive">
+              +362.57 (0.48%)
+            </span>
+          </div>
+
+          <div className="market-item">
+            <strong>BANKNIFTY</strong>
+            <span>57,369.65</span>
+            <span className="negative">
+              -10.95 (0.02%)
+            </span>
+          </div>
+
+          <div className="market-item">
+            <strong>MIDCPNIFTY</strong>
+            <span>14,713.65</span>
+            <span className="negative">
+              -46.35 (0.31%)
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ---------------- Main content ---------------- */}
+
+      <main className="content-width main-content">
+
+        {message && (
+          <div className="status-message">
+            {message}
+          </div>
+        )}
+
+        {watchlist && (
+          <>
+
+            {/* Watchlist card */}
+
+            <section className="watchlist-card">
+
+              {/* Card header */}
+
+              <div className="watchlist-header">
+
+                <div className="watchlist-tabs">
+                  <button className="watchlist-tab active">
+                    My Watchlist
+                  </button>
+
+                  <button className="watchlist-tab add-tab">
+                    + Watchlist
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Search / controls */}
+
+              <div className="watchlist-toolbar">
+
+                <div className="watchlist-search">
+                  <span>⌕</span>
+                  <span>Search your watchlist</span>
+                </div>
+
+                <button className="toolbar-button">
+                  + Add stocks
+                </button>
+
+                <button className="toolbar-button">
+                  Edit
+                </button>
+
+              </div>
+
+              {/* Welcome brief */}
+
+              <div className="brief-card">
+
+                <div className="brief-heading">
+                  <span className="brief-icon">✦</span>
+
+                  <div>
+                    <h2>Welcome back</h2>
+
+                    <p>
+                      Here's what deserves your attention.
+                    </p>
+                  </div>
+                </div>
+
+                <p className="brief-text">
+                  {brief}
+                </p>
+
+              </div>
+
+              {/* Watchlist */}
+
+              <div className="table-section">
+
+                <div className="table-heading">
+
+                  <div>
+                    <h2>{watchlist.name}</h2>
+
+                    <p>
+                      Ranked by attention score — highest
+                      priority first.
+                    </p>
+                  </div>
+
+                  <div className="stock-count">
+                    {quotes.length} stocks
+                  </div>
+
+                </div>
+
+                <WatchlistTable
+                  quotes={quotes}
+                  lastOpenedAt={lastOpenedAt}
+                />
+
+              </div>
+
+            </section>
+
+          </>
+        )}
+
+      </main>
+
+      <footer className="footer">
+        Smart Market Watchlist · Attention is based on observable
+        market signals, not predictions.
+      </footer>
+
     </div>
   );
 }
