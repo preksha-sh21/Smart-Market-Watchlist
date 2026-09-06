@@ -372,6 +372,55 @@ function WatchlistTable({ quotes }) {
                         </div>
                       )}
 
+                      {quote.scoreBreakdown && (
+                        <details className="score-details">
+
+                          <summary>
+                            Why this score?
+                          </summary>
+
+                          <div className="score-breakdown">
+
+                            <div className="score-row">
+                              <span>Movement</span>
+                              <strong>
+                                {quote.scoreBreakdown.movement.toFixed(2)}
+                              </strong>
+                            </div>
+
+                            <div className="score-row">
+                              <span>Volume</span>
+                              <strong>
+                                {quote.scoreBreakdown.volume.toFixed(2)}
+                              </strong>
+                            </div>
+
+                            <div className="score-row">
+                              <span>52-week level</span>
+                              <strong>
+                                {quote.scoreBreakdown.week52.toFixed(2)}
+                              </strong>
+                            </div>
+
+                            <div className="score-row">
+                              <span>Since last check</span>
+                              <strong>
+                                {quote.scoreBreakdown.sinceLastCheck.toFixed(2)}
+                              </strong>
+                            </div>
+
+                            <div className="score-total">
+                              <span>Total</span>
+                              <strong>
+                                {Number(quote.score).toFixed(2)}
+                              </strong>
+                            </div>
+
+                          </div>
+
+                        </details>
+                      )}
+
                     </div>
 
                   </div>
