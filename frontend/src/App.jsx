@@ -322,7 +322,7 @@ function App() {
                 <div className="table-heading">
 
                   <div>
-                    <h2>{watchlist.name}</h2>
+                    <h2>Watchlist</h2>
 
                     <p>
                       Ranked by attention score — highest
