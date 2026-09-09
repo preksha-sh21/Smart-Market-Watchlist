@@ -1,9 +1,6 @@
-const YahooFinance = require("yahoo-finance2").default;
-
 const { getMockQuotes } = require("./mockFeed");
-const Quote = require("../models/Quote");
 
-const yahooFinance = new YahooFinance();
+const Quote = require("../models/Quote");
 
 const isValidQuote = (quote) => {
   return (
@@ -31,20 +28,126 @@ const getLastGoodQuotes = async (symbols) => {
   }));
 };
 
-const getYahooQuotes = async (symbols) => {
-  const results = await yahooFinance.quote(symbols);
+/*
+ * Fetch one quote from Yahoo's Chart API.
+ *
+ * This avoids yahoo-finance2's quote() crumb flow,
+ * which is currently returning 429 errors on Render.
+ */
+const getYahooChartQuote = async (symbol) => {
+  const url = new URL(
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+      symbol
+    )}`
+  );
 
-  return results
-    .map((quote) => ({
-      symbol: quote.symbol,
-      price: quote.regularMarketPrice,
-      dayChangePct: quote.regularMarketChangePercent || 0,
-      volume: quote.regularMarketVolume || 0,
-      source: quote.symbol.endsWith(".NS") ? "NSE" : "BSE",
-      ts: new Date(),
-      stale: false,
-    }))
-    .filter(isValidQuote);
+  url.searchParams.set("range", "1d");
+  url.searchParams.set("interval", "5m");
+  url.searchParams.set("events", "history");
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+      Accept: "application/json,text/plain,*/*",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Yahoo chart request failed for ${symbol}: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+
+  const result = data?.chart?.result?.[0];
+
+  if (!result) {
+    throw new Error(`No Yahoo chart data returned for ${symbol}`);
+  }
+
+  const meta = result.meta || {};
+  const quoteData = result.indicators?.quote?.[0] || {};
+
+  const closes = quoteData.close || [];
+  const volumes = quoteData.volume || [];
+
+  // Find the latest valid closing price from the chart.
+  let lastIndex = -1;
+
+  for (let i = closes.length - 1; i >= 0; i--) {
+    if (Number.isFinite(closes[i])) {
+      lastIndex = i;
+      break;
+    }
+  }
+
+  // Prefer Yahoo's current market price.
+  const price = Number.isFinite(meta.regularMarketPrice)
+    ? meta.regularMarketPrice
+    : lastIndex >= 0
+    ? closes[lastIndex]
+    : null;
+
+  // Yahoo provides the previous trading day's close.
+  const previousClose = Number.isFinite(meta.previousClose)
+    ? meta.previousClose
+    : 0;
+
+  const dayChangePct =
+    previousClose > 0 && Number.isFinite(price)
+      ? ((price - previousClose) / previousClose) * 100
+      : 0;
+
+  // Prefer Yahoo's regular market volume.
+  const volume = Number.isFinite(meta.regularMarketVolume)
+    ? meta.regularMarketVolume
+    : lastIndex >= 0 && Number.isFinite(volumes[lastIndex])
+    ? volumes[lastIndex]
+    : 0;
+
+  /*
+   * Use Yahoo's market timestamp when available.
+   * Fall back to the current server time if Yahoo does not provide one.
+   */
+  const marketTimestamp = meta.regularMarketTime
+    ? new Date(meta.regularMarketTime * 1000)
+    : new Date();
+
+  return {
+    symbol,
+    price,
+    dayChangePct,
+    volume,
+    source: symbol.endsWith(".NS") ? "NSE" : "BSE",
+    ts: marketTimestamp,
+    stale: false,
+  };
+};
+
+/*
+ * Fetch quotes for all requested symbols.
+ *
+ * Requests are made sequentially rather than all at once
+ * to reduce the chance of triggering Yahoo rate limits.
+ */
+const getYahooQuotes = async (symbols) => {
+  const results = [];
+
+  for (const symbol of symbols) {
+    try {
+      const quote = await getYahooChartQuote(symbol);
+      results.push(quote);
+    } catch (error) {
+      console.error(
+        `Yahoo chart feed failed for ${symbol}:`,
+        error.message
+      );
+    }
+  }
+
+  return results.filter(isValidQuote);
 };
 
 const preferNSEQuotes = (quotes) => {
@@ -106,7 +209,9 @@ const getQuotes = async (symbols) => {
       return getLastGoodQuotes(symbols);
     }
 
-    const validSymbols = new Set(quotes.map((quote) => quote.symbol));
+    const validSymbols = new Set(
+      quotes.map((quote) => quote.symbol)
+    );
 
     const missingSymbols = symbols.filter(
       (symbol) => !validSymbols.has(symbol)
