@@ -25,8 +25,8 @@ const startCronPoller = () => {
   // Run once immediately when the server starts.
   pollMarketData();
 
-  // Then run approximately every 60 seconds.
-  cron.schedule("* * * * *", () => {
+  // Then run every 5 minutes.
+  cron.schedule("*/5 * * * *", () => {
     pollMarketData();
   });
 
